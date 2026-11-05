@@ -1,0 +1,43 @@
+name: Build and test
+on:
+  push:
+  pull_request:
+permissions:
+  contents: read
+jobs:
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:17-bookworm
+        env:
+          POSTGRES_USER: telegram_pm
+          POSTGRES_PASSWORD: ci-disposable-only
+          POSTGRES_DB: telegram_pm
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U telegram_pm -d telegram_pm"
+          --health-interval 3s --health-timeout 3s --health-retries 20
+    env:
+      TEST_DATABASE_CONNECTION: Host=127.0.0.1;Database=telegram_pm;Username=telegram_pm;Password=ci-disposable-only
+      ConnectionStrings__Database: Host=127.0.0.1;Database=telegram_pm;Username=telegram_pm;Password=ci-disposable-only
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-dotnet@v4
+        with:
+          global-json-file: global.json
+          cache: true
+          cache-dependency-path: '**/packages.lock.json'
+      - run: dotnet restore --locked-mode
+      - run: dotnet tool restore
+      - run: dotnet build --no-restore --configuration Release
+      - run: dotnet test --no-build --configuration Release --logger trx --results-directory artifacts/test-results
+      - run: dotnet ef migrations has-pending-model-changes --project src/TelegramProjectManager --no-build --configuration Release
+      - run: dotnet run --project src/TelegramProjectManager --no-build --configuration Release -- --migrate-only
+      - run: docker build -t telegram-pm:ci .
+      - uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: test-results
+          path: artifacts/test-results

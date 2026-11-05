@@ -1,0 +1,51 @@
+# REVIEW ONLY: this blueprint provisions PAID resources. Do not apply without approval.
+services:
+  - type: worker
+    name: telegram-ai-project-manager
+    runtime: docker
+    region: frankfurt
+    plan: starter
+    numInstances: 1
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    autoDeployTrigger: "off"
+    preDeployCommand: dotnet TelegramProjectManager.dll --migrate-only
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: telegram-pm-db
+          property: connectionString
+      - key: Telegram__Enabled
+        value: "true"
+      - key: Telegram__Token
+        sync: false
+      - key: Telegram__Groups__0__ChatId
+        sync: false
+      - key: Telegram__Groups__0__Name
+        value: TradeFlow AI
+      - key: Telegram__Groups__0__ManagerUserIds__0
+        sync: false
+      - key: Telegram__Groups__0__TimeZone
+        value: Europe/Warsaw
+      - key: Ai__Enabled
+        value: "false"
+      - key: Ai__Provider
+        value: OpenAICompatible
+      - key: Ai__Endpoint
+        sync: false
+      - key: Ai__Model
+        sync: false
+      - key: Ai__ApiKey
+        sync: false
+      - key: Management__MessageRetentionDays
+        value: "14"
+      - key: Management__MaxProactivePerDay
+        value: "4"
+databases:
+  - name: telegram-pm-db
+    region: frankfurt
+    plan: basic-256mb
+    databaseName: telegram_pm
+    user: telegram_pm
+    postgresMajorVersion: "17"
+    ipAllowList: []
